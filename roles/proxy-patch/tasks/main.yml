@@ -46,7 +46,7 @@
   file: path=/tmp/patch state=absent
 
 - name: unmount image
-  mount: state=unmounted name=/mnt/ossu  src={{ copy_result.path }} fstype=iso9660 
+  mount: state=absent name=/mnt/ossu  src={{ copy_result.path }} fstype=iso9660 
  
 - name: check if reboot is required
   command: grep 'REBOOT_REQUIRED=true' /tmp/security_update.log
