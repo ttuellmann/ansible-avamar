@@ -1,0 +1,9 @@
+---
+# file: proxy-patch.yml
+- hosts: avamar-proxies
+  user: root
+  roles:
+    - { role: proxy-patch, 
+        patch_release: "SLES11SP3-2099-Q1-v1",
+        patch_path: "/cifs/avamar/ossu/"
+      }
