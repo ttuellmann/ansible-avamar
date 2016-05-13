@@ -1,0 +1,62 @@
+---
+# tasks file for proxy-patch
+
+- name: check pre-requisites
+  fail: msg="[ERROR] 'patch_release' is not defined"
+  when: patch_release is not defined
+
+- name: create patch directory
+  file: path=/tmp/patch state=directory owner=root group=root mode=0644
+ 
+- name: upload patch files
+  copy: src={{ patch_path }}/AvPlatformOsRollup_{{ patch_release }}.iso dest=/tmp/patch owner=root group=root mode=0644
+  register: copy_result
+
+- name: compute md5sum
+  stat: path={{ copy_result.path }}
+  register: st
+
+- debug: var=st  # otherwise there is a YAML syntax error?!?
+- debug: var=iso_md5
+
+- name: verify md5sum
+  fail: msg="[ERROR] md5sum of the uploaded file is incorrect"
+  when: st.stat.md5 != iso_md5
+ 
+- name: create mount directory
+  file: path=/mnt/ossu state=directory owner=root group=root mode=0644
+
+- name: mount image
+  mount: state=mounted name=/mnt/ossu src={{ copy_result.path }} fstype=iso9660 opts=ro,loop
+
+- name: link patch set
+  file: state=link dest=/tmp/patch/sec_os_updates_{{ patch_release }}.tgz src=/mnt/ossu/sec_os_updates_{{ patch_release }}.tgz
+
+- name: copy update script
+  command: cp -f /mnt/ossu/sec_install_os_errata_sles.pl /tmp/patch
+
+- name: stop avagent service
+  service: name=avagent state=stopped
+  ignore_errors: yes # 'service avagent stop' returns 157 on success
+ 
+- name: install OS patches
+  shell: /usr/bin/perl sec_install_os_errata_sles.pl sec_os_updates_{{ patch_release }}.tgz >& /tmp/security_update.log chdir=/tmp/patch
+ 
+- name: delete patch files
+  file: path=/tmp/patch state=absent
+
+- name: unmount image
+  mount: state=unmounted name=/mnt/ossu  src={{ copy_result.path }} fstype=iso9660 
+ 
+- name: check if reboot is required
+  command: grep 'REBOOT_REQUIRED=true' /tmp/security_update.log
+  changed_when: False
+  register: reboot_required
+ 
+- name: reboot the proxy
+  command: shutdown -r now 'ansible triggered reboot'
+  when: reboot_required.rc == 0
+ 
+- name: restart avagent
+  service: name=avagent state=started
+  when: reboot_required.rc == 1

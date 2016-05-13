@@ -1,0 +1,1 @@
+iso_md5: "{{ lookup('file', '{{ patch_path }}/AvPlatformOsRollup_{{ patch_release }}.iso.md5sum').split()[0] }}"
